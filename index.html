@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<title>Kibus</title>
+	<style type="text/css">
+		canvas{
+			display: block;
+			margin: 0px auto;
+		}
+	</style>
+</head>
+<body>
+	<canvas id="mapa" class="canvas" width="800" height="800"></canvas>
+	<script type="text/javascript" src="src/dat.gui.min.js"></script>
+	<script type="text/javascript">
+
+	(function() { /* Polyfill para que todos los navegadores soporten requestAnimationFrame. */
+		var lastTime = 0;
+		var vendors = ['ms', 'moz', 'webkit', 'o'];
+		for(var x = 0; x < vendors.length && !window.requestAnimationFrame; ++x) {
+			window.requestAnimationFrame = window[vendors[x]+'RequestAnimationFrame'];
+			window.cancelAnimationFrame = window[vendors[x]+'CancelAnimationFrame'] 
+									   || window[vendors[x]+'CancelRequestAnimationFrame'];
+		}
+	 
+		if (!window.requestAnimationFrame)
+			window.requestAnimationFrame = function(callback, element) {
+				var currTime = new Date().getTime();
+				var timeToCall = Math.max(0, 16 - (currTime - lastTime));
+				var id = window.setTimeout(function() { callback(currTime + timeToCall); }, 
+				  timeToCall);
+				lastTime = currTime + timeToCall;
+				return id;
+			};
+	 
+		if (!window.cancelAnimationFrame)
+			window.cancelAnimationFrame = function(id) {
+				clearTimeout(id);
+			};
+
+		if (!Function.prototype.bind) {
+		  Function.prototype.bind = function(oThis) {
+			if (typeof this !== 'function') {
+			  // closest thing possible to the ECMAScript 5
+			  // internal IsCallable function
+			  throw new TypeError('Function.prototype.bind - what is trying to be bound is not callable');
+			}
+
+			var aArgs   = Array.prototype.slice.call(arguments, 1),
+				fToBind = this,
+				fNOP	= function() {},
+				fBound  = function() {
+				  return fToBind.apply(this instanceof fNOP && oThis
+						 ? this
+						 : oThis,
+						 aArgs.concat(Array.prototype.slice.call(arguments)));
+				};
+
+			fNOP.prototype = this.prototype;
+			fBound.prototype = new fNOP();
+
+			return fBound;
+		  };
+		}
+	}());
+
+	function shuffle(array) {
+		var m = array.length, t, i;
+		while (m) {
+			i = Math.floor(Math.random() * m--);
+			t = array[m];
+			array[m] = array[i];
+			array[i] = t;
+		}
+		return array;
+	}
+
+	var Kibus = function(canvas, mapWidth, mapHeight){
+		this.canvas = canvas;
+		
+		var self = this;
+		var mouse = function(e){
+			if (self.editable) {
+				var x = ~~(e.layerX/self.tileWidth),
+					y = ~~(e.layerY/self.tileHeight);
+				self.option = +self.option;
+				if(x >= 0 && y >= 0 && x < self.mapWidth && y < self.mapHeight){
+					switch(self.option){
+						case 0:
+						case 1:
+							if(e.buttons==1){
+								if(!((self.character.x == x && self.character.y == y) || (self.house.x == x && self.house.y == y))){
+									self.map[y][x] = self.option;
+									self.draw(x, y);
+								}
+							}
+						break;
+						case 2:
+							if(e.buttons==1){
+								if(self.map[y][x]!=1){
+									/*
+									var _x = self.character.x,
+										_y = self.character.y;
+									self.character.x = x;
+									self.character.y = y;
+									self.draw(_x, _y);								
+									*/
+									var _x = self.house.x,
+									_y = self.house.y;
+									self.house.x = x;
+									self.house.y = y;
+									self.draw(_x, _y);
+									
+									self.drawEntity(self.house);
+									self.drawEntity(self.character);
+									self.pilaRetorno = Array();
+									self.estaEnCasa();
+								}
+							}
+						break;
+						case 3:
+							if(e.buttons==1){
+								if(self.map[y][x]!=1){
+									var _x = self.character.x,
+										_y = self.character.y;
+									self.character.x = x;
+									self.character.y = y;
+									self.draw(_x, _y);								
+									
+									/*
+									_x = self.house.x;
+									_y = self.house.y;
+									self.house.x = x;
+									self.house.y = y;
+									self.draw(_x, _y);
+									*/
+									self.drawEntity(self.house);
+									self.drawEntity(self.character);
+									self.pilaRetorno = Array();
+									self.estaEnCasa();
+								}
+							}
+						break;
+						default:
+						break;
+					}
+				}
+			};
+		};
+		this.canvas.addEventListener('mousedown', mouse);
+		this.canvas.addEventListener('mousemove', mouse);
+
+		window.addEventListener('keydown', function(e){
+			var _x = self.character.x,
+				_y = self.character.y;
+				_nX = _x, 
+				_nY = _y;
+			switch(e.keyCode){
+				case 37: //left
+					self.pilaRetorno.push('r');
+					_nX--;
+				break;
+				case 38: //up 
+					self.pilaRetorno.push('d');
+					_nY--;
+				break;
+				case 39: //right
+					self.pilaRetorno.push('l');
+					_nX++;
+				break;
+				case 40: //down 
+					self.pilaRetorno.push('u');
+					_nY++;
+				break;
+				default:
+				break;
+			}
+			if(_nX >= 0 && _nY >= 0 && _nX < self.mapWidth && _nY < self.mapHeight && self.map[_nY][_nX]!=1){
+				self.character.x = _nX;
+				self.character.y = _nY;
+
+				self.draw(_x, _y);
+				self.drawEntity(self.house);
+				self.drawEntity(self.character);
+
+				self.estaEnCasa();
+			}else{
+				self.pilaRetorno.pop();
+			}
+		});
+
+		this.ctx = canvas.getContext("2d");
+		this.mapWidth = mapWidth;
+		this.mapHeight = mapHeight;
+
+		this.editable = false;
+
+		this.putOptions = {'Terreno':0, 'Obstáculo':1, 'Casa':2, 'Kibus':3};
+		this.option = 0;
+
+		this.percentage = 25;
+
+		this.map = null;
+
+		this.tileWidth = ~~(this.canvas.width / this.mapWidth);
+		this.tileHeight = ~~(this.canvas.height / this.mapHeight);
+
+		this.fps = 5;
+
+		this.images = Array();
+
+		this.grassImage = document.createElement("img");
+		this.grassImage.src = "src/assets/grass.png";
+
+		this.images.push(this.grassImage);
+
+		this.rockImage = document.createElement("img");
+		this.rockImage.src = "src/assets/tree.png";
+
+		this.images.push(this.rockImage);
+
+		var Entity = function(x, y, type, src){
+			/**
+			* type {0: character, 1:house, 2: bees}
+			*/
+			this.x = x;
+			this.y = y;
+			this.type = type;
+
+			this.image = null;
+			this.orientation = null;
+
+			if(src){
+				if(typeof(src)=="object"){
+					this.images = {};
+
+					this.images.u = document.createElement("img");
+					this.images.u.src = src.u.src;
+
+					self.images.push(this.images.u);
+
+					this.images.u.actualStep = 0;
+					this.images.u.steps = src.u.steps;
+					this.images.u.width = src.u.width;
+					this.images.u.height = src.u.height;
+
+					this.images.d = document.createElement("img");
+					this.images.d.src = src.d.src;
+
+					self.images.push(this.images.d);
+
+					this.images.d.actualStep = 0;
+					this.images.d.steps = src.d.steps;
+					this.images.d.width = src.d.width;
+					this.images.d.height = src.d.height;
+
+					this.images.l = document.createElement("img");
+					this.images.l.src = src.l.src;
+
+					self.images.push(this.images.l);
+
+					this.images.l.actualStep = 0;
+					this.images.l.steps = src.l.steps;
+					this.images.l.width = src.l.width;
+					this.images.l.height = src.l.height;
+
+					this.images.r = document.createElement("img");
+					this.images.r.src = src.r.src;
+
+					self.images.push(this.images.r);
+
+					this.images.r.actualStep = 0;
+					this.images.r.steps = src.r.steps;
+					this.images.r.width = src.r.width;
+					this.images.r.height = src.r.height;
+
+					this.orientation = 'd';
+				}else{
+					this.image = document.createElement("img");
+					this.image.src = src;
+
+					self.images.push(this.image);
+				}
+			}
+		};	
+
+		this.character = new Entity(0,0,0, {
+			"d": {
+				"src": "src/assets/linkD.png",
+				"steps": 7,
+				"width": 16,
+				"height": 24
+			},
+			"u": {
+				"src": "src/assets/linkD.png",
+				"steps": 7,
+				"width": 16,
+				"height": 24
+			},
+			"l": {
+				"src": "src/assets/linkD.png",
+				"steps": 7,
+				"width": 16,
+				"height": 24
+			},
+			"r": {
+				"src": "src/assets/linkD.png",
+				"steps": 7,
+				"width": 16,
+				"height": 24
+			},
+		});
+		this.house = new Entity(0,0,1, "src/assets/houseTLOZ.png");
+
+		this.pilaRetorno = Array();
+		this.animationId = null;
+		this.enCasa = false;
+	};
+
+	Kibus.prototype.draw = function(x, y) {
+		var img = null;
+		if(this.map[y][x]==0){
+			img = this.grassImage;
+			this.ctx.drawImage(img, 0, 0, 16, 16, x*this.tileWidth, y*this.tileHeight, this.tileWidth, this.tileHeight);
+			this.ctx.fillStyle = "green";
+		}else if(this.map[y][x]==1){
+			img = this.rockImage;
+			this.ctx.drawImage(img, 0, 0, 64, 80, x*this.tileWidth, y*this.tileHeight, this.tileWidth, this.tileHeight);
+			this.ctx.fillStyle = "brown";
+		}
+		
+		//this.ctx.fillRect(x*this.tileWidth, y*this.tileHeight, this.tileWidth, this.tileHeight);
+	};
+
+	Kibus.prototype.drawEntity = function(Entity) {
+		if(Entity.type==0){
+			this.ctx.fillStyle = "blue";
+			if(Entity.orientation){
+				switch(Entity.orientation){
+					case 'd':
+						this.ctx.drawImage(Entity.images.d, Entity.images.d.actualStep*Entity.images.d.width, 0, Entity.images.d.width, Entity.images.d.height, Entity.x*this.tileWidth, Entity.y*this.tileHeight/*-8*/, this.tileWidth, this.tileHeight/*+8*/);
+						Entity.images.d.actualStep = (Entity.images.d.actualStep + 1)%Entity.images.d.steps;
+					break;
+					default:
+					break;
+				}
+			}
+		}else if(Entity.type==1){
+			this.ctx.fillStyle = "gray";
+			this.ctx.drawImage(Entity.image, 0, 0, 64, 94, Entity.x*this.tileWidth, Entity.y*this.tileHeight/*-8*/, this.tileWidth, this.tileHeight/*+8*/);
+		}
+
+		/*
+		if(Entity.image){
+			this.ctx.drawImage(Entity.image, 0, 0, 16, 24, Entity.x*this.tileWidth, Entity.y*this.tileHeight-8, this.tileWidth, this.tileHeight+8);
+		}else{
+			this.ctx.fillRect(Entity.x*this.tileWidth, Entity.y*this.tileHeight, this.tileWidth, this.tileHeight);
+		}
+		*/
+	};	
+
+	Kibus.prototype.render = function(){
+		this.ctx.clearRect(0,0,this.canvas.width, this.canvas.height);
+		for (var i = this.mapHeight - 1; i >= 0; i--) {
+			for (var j = this.mapWidth - 1; j >= 0; j--) {
+				this.draw(j,i);
+			}
+		}
+		this.drawEntity(this.house);
+		this.drawEntity(this.character);
+	}
+
+	Kibus.prototype.makeRandomMap = function(_percentage) {
+		var percentage = _percentage > 100 ? 100 : (_percentage < 0 ? 0 : _percentage);
+			percentage /= 100;
+		var obstacles = ~~(this.mapWidth*this.mapHeight*percentage); //~~ es para convertir a entero (redondeo hacia abajo)
+		
+		var positionSelected = false;
+
+		var plainArray = Array(this.mapWidth*this.mapHeight);
+		for (var i = 0; i < obstacles; i++) {
+			plainArray[i] = 1;
+		}
+		for (var i = obstacles, j = plainArray.length; i < j; i++) {
+			plainArray[i] = 0;
+		}
+
+		shuffle(plainArray);
+
+		for (var i = 0; i < this.mapHeight; i++) {
+			for (var j = 0; j < this.mapWidth; j++) {
+				this.map[i][j] = plainArray[i*this.mapWidth+j];
+				if(this.map[i][j] == 0 && !positionSelected){
+					this.house.x = j;
+					this.house.y = i;
+
+					this.character.x = j;
+					this.character.y = i;
+
+					positionSelected = true;
+				}
+			}
+		}
+	};
+
+	Kibus.prototype.estaEnCasa = function(){
+		if(this.character.x == this.house.x && this.character.y == this.house.y){
+			this.enCasa = true;
+		}else{
+			this.enCasa = false;
+		}
+	}
+
+	Kibus.prototype._retornar = function(){
+		var self = this;		
+		setTimeout(function() {
+			if(self.pilaRetorno.length && !self.enCasa){
+				self.animationId = requestAnimationFrame(self._retornar.bind(self));
+
+				var x = self.character.x,
+					y = self.character.y;
+				switch(self.pilaRetorno.pop()){
+					case 'u':
+						self.character.y--;
+					break;
+					case 'l':
+						self.character.x--;
+					break;
+					case 'd':
+						self.character.y++;
+					break;
+					case 'r':
+						self.character.x++;
+					break;
+					default:
+					break;
+				}
+				self.draw(x,y);
+				self.drawEntity(self.character);
+				if(self.character.x == self.house.x && self.character.y == self.house.y){
+					self.enCasa = true;
+				}
+			}else{
+				self.pilaRetorno = Array();
+				cancelAnimationFrame(self.animationId);
+			}
+		}, 1000 / self.fps);
+	}
+
+	Kibus.prototype.retornar = function(){
+		this.animationId = requestAnimationFrame(this._retornar.bind(this));
+	};
+
+	Kibus.prototype.onLoad = function(callback){
+		var numImages = this.images.length;
+		var loadedImages = 0;
+		var self = this;
+		for(var i=0; i<numImages; i++){
+			this.images[i].onload = function() {
+	            if(++loadedImages >= numImages) {
+	              callback.call(self);
+	            }
+			}
+		}
+	}
+
+	Kibus.prototype.init = function() {
+		this.map = Array(this.mapHeight);
+		for (var i = this.mapHeight - 1; i >= 0; i--) {
+			this.map[i] = Array(this.mapWidth);
+		};
+		this.tileWidth = ~~(this.canvas.width / this.mapWidth);
+		this.tileHeight = ~~(this.canvas.height / this.mapHeight);
+		this.makeRandomMap(this.percentage);
+		this.pilaRetorno = Array();
+		this.enCasa = false;
+		this.render();
+		console.log(this.images);
+	};
+
+	var TILES_X = 20,
+		TILES_Y = 20;
+	var gui = new dat.GUI();
+	var kibus = new Kibus(document.getElementById("mapa"), TILES_X, TILES_Y);
+	
+	gui.add(kibus, 'mapWidth').min(0);
+	gui.add(kibus, 'mapHeight').min(0);
+	gui.add(kibus, 'editable');
+	gui.add(kibus, 'option', kibus.putOptions);
+	gui.add(kibus, 'percentage', 20, 80).step(1);
+	gui.add(kibus, 'init');
+	gui.add(kibus, 'fps', 1, 240).step(1);
+	gui.add(kibus, 'retornar');
+
+	kibus.onLoad(kibus.init);
+
+	/*		
+		function loadJSON(path, success, error)
+		{
+			var xhr = new XMLHttpRequest();
+			xhr.onreadystatechange = function()
+			{
+				if (xhr.readyState === XMLHttpRequest.DONE) {
+					if (xhr.status === 200) {
+						if (success)
+							success(JSON.parse(xhr.responseText));
+					} else {
+						if (error)
+							error(xhr);
+					}
+				}
+			};
+			xhr.open("GET", path, true);
+			xhr.send();
+		}
+
+		loadJSON("src/mapa1.json",
+			function(data){
+				console.log(data);
+			},
+			function(err){
+				console.err(err);
+			});
+	*/
+	</script>
+</body>
+</html>
