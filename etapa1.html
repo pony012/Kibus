@@ -11,7 +11,6 @@
 	</style>
 </head>
 <body>
-	<input type="file" id="fileinput" style="display:none" />
 	<canvas id="mapa" class="canvas" width="800" height="800"></canvas>
 	<script type="text/javascript" src="src/dat.gui.min.js"></script>
 	<script type="text/javascript">
@@ -22,7 +21,7 @@
 		for(var x = 0; x < vendors.length && !window.requestAnimationFrame; ++x) {
 			window.requestAnimationFrame = window[vendors[x]+'RequestAnimationFrame'];
 			window.cancelAnimationFrame = window[vendors[x]+'CancelAnimationFrame'] 
-										 || window[vendors[x]+'CancelRequestAnimationFrame'];
+									   || window[vendors[x]+'CancelRequestAnimationFrame'];
 		}
 	 
 		if (!window.requestAnimationFrame)
@@ -30,7 +29,7 @@
 				var currTime = new Date().getTime();
 				var timeToCall = Math.max(0, 16 - (currTime - lastTime));
 				var id = window.setTimeout(function() { callback(currTime + timeToCall); }, 
-					timeToCall);
+				  timeToCall);
 				lastTime = currTime + timeToCall;
 				return id;
 			};
@@ -41,18 +40,18 @@
 			};
 
 		if (!Function.prototype.bind) {
-			Function.prototype.bind = function(oThis) {
+		  Function.prototype.bind = function(oThis) {
 			if (typeof this !== 'function') {
-				// closest thing possible to the ECMAScript 5
-				// internal IsCallable function
-				throw new TypeError('Function.prototype.bind - what is trying to be bound is not callable');
+			  // closest thing possible to the ECMAScript 5
+			  // internal IsCallable function
+			  throw new TypeError('Function.prototype.bind - what is trying to be bound is not callable');
 			}
 
-			var aArgs	 = Array.prototype.slice.call(arguments, 1),
+			var aArgs   = Array.prototype.slice.call(arguments, 1),
 				fToBind = this,
 				fNOP	= function() {},
-				fBound	= function() {
-					return fToBind.apply(this instanceof fNOP && oThis
+				fBound  = function() {
+				  return fToBind.apply(this instanceof fNOP && oThis
 						 ? this
 						 : oThis,
 						 aArgs.concat(Array.prototype.slice.call(arguments)));
@@ -62,7 +61,7 @@
 			fBound.prototype = new fNOP();
 
 			return fBound;
-			};
+		  };
 		}
 	}());
 
@@ -76,24 +75,6 @@
 		}
 		return array;
 	}
-
-	function readSingleFile(evt) {
-	    //Retrieve the first (and only!) File from the FileList object
-	    var f = evt.target.files[0]; 
-
-	    if (f) {
-	      var r = new FileReader();
-	      r.onload = function(e) { 
-		      var contents = e.target.result;
-		      kibus.cargarMapa(JSON.parse(contents));		      
-	      }
-	      r.readAsText(f);
-	    } else { 
-	      alert("Failed to load file");
-	    }
-  	}
-
-	document.getElementById('fileinput').addEventListener('change', readSingleFile, false);
 
 	var Kibus = function(canvas, mapWidth, mapHeight){
 		this.canvas = canvas;
@@ -118,14 +99,23 @@
 						case 2:
 							if(e.buttons==1){
 								if(self.map[y][x]!=1){
-									var _x = self.house.x,
-										_y = self.house.y;
+									
+									var _x = self.character.x,
+										_y = self.character.y;
+									self.character.x = x;
+									self.character.y = y;
+									self.draw(_x, _y);								
+									
+									_x = self.house.x,
+									_y = self.house.y;
 									self.house.x = x;
 									self.house.y = y;
 									self.draw(_x, _y);
 									
 									self.drawEntity(self.house);
 									self.drawEntity(self.character);
+									self.pilaRetorno = Array();
+									self.estaEnCasa();
 								}
 							}
 						break;
@@ -138,8 +128,17 @@
 									self.character.y = y;
 									self.draw(_x, _y);								
 									
+									/*
+									_x = self.house.x;
+									_y = self.house.y;
+									self.house.x = x;
+									self.house.y = y;
+									self.draw(_x, _y);
+									*/
 									self.drawEntity(self.house);
 									self.drawEntity(self.character);
+									self.pilaRetorno = Array();
+									self.estaEnCasa();
 								}
 							}
 						break;
@@ -153,12 +152,44 @@
 		this.canvas.addEventListener('mousemove', mouse);
 
 		window.addEventListener('keydown', function(e){
+			var _x = self.character.x,
+				_y = self.character.y;
+				_nX = _x, 
+				_nY = _y;
 			switch(e.keyCode){
 				case 82:
 					self.retornar();
 				break;
+				case 37: //left
+					self.pilaRetorno.push('r');
+					_nX--;
+				break;
+				case 38: //up 
+					self.pilaRetorno.push('d');
+					_nY--;
+				break;
+				case 39: //right
+					self.pilaRetorno.push('l');
+					_nX++;
+				break;
+				case 40: //down 
+					self.pilaRetorno.push('u');
+					_nY++;
+				break;
 				default:
 				break;
+			}
+			if(_nX >= 0 && _nY >= 0 && _nX < self.mapWidth && _nY < self.mapHeight && self.map[_nY][_nX]!=1){
+				self.character.x = _nX;
+				self.character.y = _nY;
+
+				self.draw(_x, _y);
+				self.drawEntity(self.house);
+				self.drawEntity(self.character);
+
+				self.estaEnCasa();
+			}else{
+				self.pilaRetorno.pop();
 			}
 		});
 
@@ -166,12 +197,7 @@
 		this.mapWidth = mapWidth;
 		this.mapHeight = mapHeight;
 
-		self.movesX = [-1, -1, 0, 1, 1, 1, 0, -1],
-		self.movesY = [0, -1, -1, -1, 0, 1, 1, 1];
-
-		this.editable = true;
-
-		this.prevPosition = {x: null, y: null};
+		this.editable = false;
 
 		this.putOptions = {'Terreno':0, 'Obstáculo':1, 'Casa':2, 'Kibus':3};
 		this.option = 0;
@@ -184,8 +210,6 @@
 		this.tileHeight = ~~(this.canvas.height / this.mapHeight);
 
 		this.fps = 5;
-
-		this.flagLimit = 10;
 
 		this.images = Array();
 
@@ -292,10 +316,9 @@
 		});
 		this.house = new Entity(0,0,1, "src/assets/houseTLOZ.png");
 
+		this.pilaRetorno = Array();
 		this.animationId = null;
 		this.enCasa = false;
-
-		this.pilaMovimientos = [];
 	};
 
 	Kibus.prototype.draw = function(x, y) {
@@ -303,27 +326,14 @@
 		if(this.map[y][x]==0){
 			img = this.grassImage;
 			this.ctx.drawImage(img, 0, 0, 16, 16, x*this.tileWidth, y*this.tileHeight, this.tileWidth, this.tileHeight);
+			this.ctx.fillStyle = "green";
 		}else if(this.map[y][x]==1){
 			img = this.rockImage;
 			this.ctx.drawImage(img, 0, 0, 64, 80, x*this.tileWidth, y*this.tileHeight, this.tileWidth, this.tileHeight);
+			this.ctx.fillStyle = "brown";
 		}
-
-		if(this.flagsMap[y][x]){
-			this.ctx.beginPath();
-			this.ctx.moveTo(x*this.tileWidth + this.tileWidth / 4, y*this.tileHeight + this.tileHeight - 1);
-			this.ctx.lineTo(x*this.tileWidth + 3 * this.tileWidth / 4 , y*this.tileHeight + this.tileHeight - 1);
-			this.ctx.moveTo(x*this.tileWidth + this.tileWidth / 2, y*this.tileHeight + this.tileHeight - 1);
-			this.ctx.lineTo(x*this.tileWidth + this.tileWidth / 2, y*this.tileHeight + this.tileHeight / 10);
-			this.ctx.lineTo(x*this.tileWidth + 1, y*this.tileHeight + this.tileHeight / 4);
-			this.ctx.lineTo(x*this.tileWidth + this.tileWidth / 2, y*this.tileHeight + this.tileHeight / 1.8);
-			this.ctx.closePath();
-			this.ctx.fillStyle = "hsl(15, 100%, "+ (80 -this.flagsMap[y][x]*4)+"%)";
-			this.ctx.fill();
-			this.ctx.stroke();
-			this.ctx.fillStyle = "blue";
-			this.ctx.font = "8px";
-			this.ctx.fillText(this.flagsMap[y][x], x*this.tileWidth + this.tileWidth / 4.2, y*this.tileHeight + this.tileHeight / 2.5);
-		}
+		
+		//this.ctx.fillRect(x*this.tileWidth, y*this.tileHeight, this.tileWidth, this.tileHeight);
 	};
 
 	Kibus.prototype.drawEntity = function(Entity) {
@@ -340,6 +350,7 @@
 				}
 			}
 		}else if(Entity.type==1){
+			this.ctx.fillStyle = "gray";
 			this.ctx.drawImage(Entity.image, 0, 0, 64, 94, Entity.x*this.tileWidth, Entity.y*this.tileHeight/*-8*/, this.tileWidth, this.tileHeight/*+8*/);
 		}
 
@@ -361,14 +372,6 @@
 		}
 		this.drawEntity(this.house);
 		this.drawEntity(this.character);
-	}
-
-	Kibus.prototype.initFlags = function(){
-		for (var i = 0; i < this.mapHeight; i++) {
-			for (var j = 0; j < this.mapWidth; j++) {
-				this.flagsMap[i][j] = 0;
-			}
-		}
 	}
 
 	Kibus.prototype.makeRandomMap = function(_percentage) {
@@ -412,212 +415,43 @@
 		}
 	}
 
-	Kibus.prototype.canMove = function(){
-		/*
-			Returns an array of possible movements for Kibus
-			[1 2 3]
-			[0 K 4]
-			[7 6 5]
-		*/
-		var self = this;
-		
-
-		var moves = [];
-		
-		var _x = self.character.x,
-			_y = self.character.y,
-			_nX,
-			_nY;
-		for (var i = 0; i < 8; i++) {
-			_nX = _x + self.movesX[i];
-			_nY = _y + self.movesY[i];
-			if(_nX >= 0 && _nY >= 0 && _nX < self.mapWidth && _nY < self.mapHeight && self.map[_nY][_nX]!=1){
-				moves.push(true);
-			}else{
-				moves.push(false);
-			}
-		};
-		return moves;
-	}
-
-	Kibus.prototype.getProbabilities = function(){
-		var self = this;
-		var probabilities = [];
-		var moves = this.canMove();
-
-		var totalProb = 0;
-		for(var i=0; i<8; i++){
-			var val = moves[i]?(this.flagsMap[this.character.y+self.movesY[i]][this.character.x+self.movesX[i]] + 1):0;
-
-			if(this.character.x+self.movesX[i] == this.prevPosition.x && this.character.y+self.movesY[i] == this.prevPosition.y){
-				if(moves[i] /*&& this.flagsMap[this.character.y+self.movesY[i]][this.character.x+self.movesX[i]] < 10*/){
-					probabilities[i] = 1 / ( val * val * val * val );
-				}else{
-					probabilities[i] = 0;
-				}
-			}else{
-				if(moves[i] /*&& this.flagsMap[this.character.y+self.movesY[i]][this.character.x+self.movesX[i]] < 10*/){
-					probabilities[i] = 1 / (val * val);
-				}else{
-					probabilities[i] = 0;
-				}
-			}
-			totalProb += probabilities[i];
-		}
-		var actualProbabilities = [];
-		var ac = 0;
-		for(var i=0; i<8; i++){
-			if(probabilities[i]){
-				ac += probabilities[i] / totalProb;
-				actualProbabilities[i] = ac;
-
-			}else{
-				actualProbabilities[i] = ac;
-			}
-		}
-		//console.log(probabilities);
-		//console.log(actualProbabilities); //Acumuladas
-		return actualProbabilities;
-	}
-
-	Kibus.prototype.getRandomMovement = function(){
-		var probs = this.getProbabilities();
-		var rand = Math.random();
-		for (var i = 0; i < probs.length; i++) {
-			if(rand <= probs[i])
-				return i;
-		}
-		return null;
-	}
-
-	Kibus.prototype.makeRandomMovement = function(){
-		var movement = this.getRandomMovement();
-		if(movement==null){
-			alert("Se quedó sin movimientos");
-			return;
-		} 
-		this.prevPosition.x = this.character.x;
-		this.prevPosition.y = this.character.y;
-		this.character.x += this.movesX[movement];
-		this.character.y += this.movesY[movement];
-		this.flagsMap[this.prevPosition.y][this.prevPosition.x]++;
-		//this.flagsMap[this.character.y][this.character.x]++;
-		this.draw(this.prevPosition.x, this.prevPosition.y);
-		this.draw(this.character.x, this.character.y);
-		this.drawEntity(this.character);
-	}
-
-	Kibus.prototype.validPoint = function(x, y){
-		if(x >= 0 && y >= 0 && x < this.mapWidth && y < this.mapHeight && this.map[y][x]!=1 && this.flagsMap[y][x] <= this.flagLimit){
-			return true;
-		}
-		return false;
-	}
-
-	Kibus.prototype.getLine = function(x0, y0, x1, y1){
-		var x, y, dx, dy, p, incE, incNE, stepx, stepy;
-		var puntos = [];
-		dx = (x1 - x0);
-		dy = (y1 - y0);
-
-		if (dy < 0) { 
-			dy = -dy; 
-			stepy = -1; 
-		}else {
-			stepy = 1;
-		}
-
-		if (dx < 0) {	
-			dx = -dx;	
-			stepx = -1; 
-		}else {
-			stepx = 1;
-		}
-
-		x = x0;
-		y = y0;
-
-		if(dx>dy){
-			p = 2*dy - dx;
-			incE = 2*dy;
-			incNE = 2*(dy-dx);
-			while (x != x1){
-				x = x + stepx;
-				if (p < 0){
-					p = p + incE;
-				}
-				else {
-					y = y + stepy;
-					p = p + incNE;
-				}
-				if(this.validPoint(x, y)){
-					puntos.push({x: x, y: y});
-				}else{
-					return puntos;
-				}
-			}
-		}
-		else{
-			p = 2*dx - dy;
-			incE = 2*dx;
-			incNE = 2*(dx-dy);
-			while (y != y1){
-				y = y + stepy;
-				if (p < 0){
-					p = p + incE;
-				}
-				else {
-					x = x + stepx;
-					p = p + incNE;
-				}
-				if(this.validPoint(x, y)){
-					puntos.push({x: x, y: y});
-				}else{
-					return puntos;
-				}
-			}
-		}
-		return puntos;
-	}
-
 	Kibus.prototype._retornar = function(){
 		var self = this;		
 		setTimeout(function() {
-			if(!self.enCasa){
+			if(self.pilaRetorno.length && !self.enCasa){
 				self.animationId = requestAnimationFrame(self._retornar.bind(self));
 
-				if(self.pilaMovimientos.length==0){
-					self.pilaMovimientos = self.getLine(self.character.x, self.character.y, self.house.x, self.house.y);
-					if(self.pilaMovimientos.length == 0){
-						self.makeRandomMovement();
-					}
+				var x = self.character.x,
+					y = self.character.y;
+				switch(self.pilaRetorno.pop()){
+					case 'u':
+						self.character.y--;
+					break;
+					case 'l':
+						self.character.x--;
+					break;
+					case 'd':
+						self.character.y++;
+					break;
+					case 'r':
+						self.character.x++;
+					break;
+					default:
+					break;
 				}
-
-				if(self.pilaMovimientos.length){
-					var movement = self.pilaMovimientos.shift();
-
-					self.prevPosition.x = self.character.x;
-					self.prevPosition.y = self.character.y;
-
-					//this.flagsMap[this.prevPosition.y][this.prevPosition.x]++;
-
-					self.character.x = movement.x;
-					self.character.y = movement.y;
-
-					self.draw(self.prevPosition.x, self.prevPosition.y);
-					self.drawEntity(self.character);
-					if(self.character.x == self.house.x && self.character.y == self.house.y){
-						self.enCasa = true;
-					}
+				self.draw(x,y);
+				self.drawEntity(self.character);
+				if(self.character.x == self.house.x && self.character.y == self.house.y){
+					self.enCasa = true;
 				}
 			}else{
+				self.pilaRetorno = Array();
 				cancelAnimationFrame(self.animationId);
 			}
 		}, 1000 / self.fps);
 	}
 
 	Kibus.prototype.retornar = function(){
-		this.initFlags();
 		this.animationId = requestAnimationFrame(this._retornar.bind(this));
 	};
 
@@ -627,91 +461,25 @@
 		var self = this;
 		for(var i=0; i<numImages; i++){
 			this.images[i].onload = function() {
-				if(++loadedImages >= numImages) {
-					callback.call(self);
-				}
+	            if(++loadedImages >= numImages) {
+	              callback.call(self);
+	            }
 			}
 		}
 	}
 
 	Kibus.prototype.init = function() {
 		this.map = Array(this.mapHeight);
-		this.flagsMap = Array(this.mapHeight);
 		for (var i = this.mapHeight - 1; i >= 0; i--) {
 			this.map[i] = Array(this.mapWidth);
-			this.flagsMap[i] = Array(this.mapWidth);
 		};
-		this.initFlags();
 		this.tileWidth = ~~(this.canvas.width / this.mapWidth);
 		this.tileHeight = ~~(this.canvas.height / this.mapHeight);
 		this.makeRandomMap(this.percentage);
+		this.pilaRetorno = Array();
 		this.enCasa = false;
 		this.render();
 	};
-
-	Kibus.prototype.download = function() {
-		var element = document.createElement('a');
-		var text = '{"width": '+this.mapWidth+', "height": '+this.mapHeight+', "map":[';
-		for (var i = 0; i < this.map.length; i++) {
-			text +="[";
-			for (var j = 0; j < this.map[0].length; j++) {
-					text+=this.map[i][j];
-					if(j<this.map[0].length-1)
-						text+=","
-			}
-			text+=']';
-			if(i<this.map.length-1)
-				text+=","
-		}
-		text+=']}';
-		element.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(text));
-		element.setAttribute('download', 'mundo.kib');
-
-		element.style.display = 'none';
-		document.body.appendChild(element);
-
-		element.click();
-
-		document.body.removeChild(element);
-	}
-
-	Kibus.prototype.upload = function() {
-		document.getElementById("fileinput").click();
-	}
-
-	Kibus.prototype.cargarMapa = function(obj){
-		this.mapWidth = obj.width;
-		this.mapHeight = obj.height;
-		this.map = Array(obj.height);
-		this.flagsMap = Array(obj.height);
-		for (var i = obj.width - 1; i >= 0; i--) {
-			this.map[i] = Array(obj.width);
-			this.flagsMap[i] = Array(obj.width);
-		};
-		this.initFlags();
-		this.tileWidth = ~~(this.canvas.width / this.mapWidth);
-		this.tileHeight = ~~(this.canvas.height / this.mapHeight);
-		
-		var positionSelected = false;
-
-		for (var i = 0; i < this.mapHeight; i++) {
-			for (var j = 0; j < this.mapWidth; j++) {
-				this.map[i][j] = obj.map[i][j];
-				if(this.map[i][j] == 0 && !positionSelected){
-					this.house.x = j;
-					this.house.y = i;
-
-					this.character.x = j;
-					this.character.y = i;
-
-					positionSelected = true;
-				}
-			}
-		}
-
-		this.enCasa = false;
-		this.render();
-	}
 
 	var TILES_X = 20,
 		TILES_Y = 20;
@@ -720,18 +488,43 @@
 	
 	gui.add(kibus, 'mapWidth').min(0);
 	gui.add(kibus, 'mapHeight').min(0);
-	gui.add(kibus, 'flagLimit', 5, 50).step(1);
 	gui.add(kibus, 'editable');
 	gui.add(kibus, 'option', kibus.putOptions);
 	gui.add(kibus, 'percentage', 20, 80).step(1);
 	gui.add(kibus, 'init');
-	gui.add(kibus, 'download');
-	gui.add(kibus, 'upload');
 	gui.add(kibus, 'fps', 1, 240).step(1);
 	gui.add(kibus, 'retornar');
 
 	kibus.onLoad(kibus.init);
 
+	/*		
+		function loadJSON(path, success, error)
+		{
+			var xhr = new XMLHttpRequest();
+			xhr.onreadystatechange = function()
+			{
+				if (xhr.readyState === XMLHttpRequest.DONE) {
+					if (xhr.status === 200) {
+						if (success)
+							success(JSON.parse(xhr.responseText));
+					} else {
+						if (error)
+							error(xhr);
+					}
+				}
+			};
+			xhr.open("GET", path, true);
+			xhr.send();
+		}
+
+		loadJSON("src/mapa1.json",
+			function(data){
+				console.log(data);
+			},
+			function(err){
+				console.err(err);
+			});
+	*/
 	</script>
 </body>
 </html>

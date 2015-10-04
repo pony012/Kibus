@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<title>Kibus</title>
+	<style type="text/css">
+		canvas{
+			display: block;
+			margin: 0px auto;
+		}
+	</style>
+</head>
+<body>
+	<input type="file" id="fileinput" style="display:none" />
+	<canvas id="mapa" class="canvas" width="800" height="800"></canvas>
+	<script type="text/javascript" src="../src/dat.gui.min.js"></script>
+	<script type="text/javascript" src="utils.js"></script>
+	<script type="text/javascript" src="Kibus.main.js"></script>
+	<script type="text/javascript" src="Kibus.def.js"></script>
+	<script type="text/javascript" src="Kibus.util.js"></script>
+	<script type="text/javascript">
+	var TILES_X = 20,
+		TILES_Y = 20;
+	var gui = new dat.GUI();
+	var kibus = new Kibus(document.getElementById("mapa"), TILES_X, TILES_Y);
+	
+	gui.add(kibus, 'mapWidth').min(0);
+	gui.add(kibus, 'mapHeight').min(0);
+	gui.add(kibus, 'flagLimit', 1, 50).step(1);
+	gui.add(kibus, 'editable');
+	gui.add(kibus, 'option', kibus.putOptions);
+	gui.add(kibus, 'percentage', 20, 80).step(1);
+	gui.add(kibus, 'init');
+	gui.add(kibus, 'download');
+	gui.add(kibus, 'upload');
+	gui.add(kibus, 'fps', 1, 240).step(1);
+	gui.add(kibus, 'retornar');
+	gui.add(kibus, 'steps').listen();
+
+	kibus.onLoad(kibus.init);
+
+	</script>
+</body>
+</html>
