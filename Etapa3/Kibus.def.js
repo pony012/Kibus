@@ -21,6 +21,32 @@ Kibus.prototype.propagacion = function(){
 	}
 	for(var i = 0; i<this.beeCount; i++){
 		var random = this.getRandomMovement(this.bees[i].entity.x, this.bees[i].entity.y);
+		/*
+		if(this.canMove(this.bees[i].entity.x, this.bees[i].entity.y).length > 1 && this.bees[i].moves.length){
+			while(this.bees[i].entity.x + this.movesX[random] == this.bees[i].moves[this.bees[i].moves.length-1].x && 
+				  this.bees[i].entity.y + this.movesY[random] == this.bees[i].moves[this.bees[i].moves.length-1].y){
+				random = this.getRandomMovement(this.bees[i].entity.x, this.bees[i].entity.y);
+			}
+		}*/
+		/*
+		if(this.canMove(this.bees[i].entity.x, this.bees[i].entity.y).length > 1 && this.bees[i].moves.length){
+			var validMove = true;
+			var m = this.bees[i].moves.length-1;
+			while(validMove){
+				while(m >= 0 && validMove){
+					if(this.bees[i].entity.x + this.movesX[random] == this.bees[i].moves[m].x && 
+					  this.bees[i].entity.y + this.movesY[random] == this.bees[i].moves[m].y){
+						validMove = false;
+					}	
+					m--;
+				}
+				if(!validMove){
+					random = this.getRandomMovement(this.bees[i].entity.x, this.bees[i].entity.y);
+				}
+				validMove = !validMove;
+			}
+		}
+		*/
 		this.bees[i].entity.x += this.movesX[random];
 		this.bees[i].entity.y += this.movesY[random];
 		this.bees[i].moves.push({x: this.bees[i].entity.x, y: this.bees[i].entity.y});
@@ -103,9 +129,9 @@ Kibus.prototype.initHeatMap = function(){
 	cola.push({
 		x: this.house.x, 
 		y: this.house.y, 
-		temp: 0});
+		temp: 20});
 	this.heatMap[this.house.y][this.house.x] = 0;
-	this.heat.radius(this.tileWidth / 2, this.tileWidth / 2 + 8);
+	this.heat.radius(this.tileWidth / 2 + 2, this.tileWidth / 2 );
 	this.heat.clear();
 	this.maxHeat = 0;
 	self = this;
@@ -127,7 +153,7 @@ Kibus.prototype.initHeatMap = function(){
 			}
 		}
 	}
-	this.heat.max(this.maxHeat);
+	this.heat.max(this.maxHeat + 5);
 	this.heat.draw();
 }
 

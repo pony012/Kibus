@@ -248,12 +248,11 @@ var Kibus = function(canvas, mapWidth, mapHeight, heatmapCanvas){
 
 	this.heat = simpleheat(heatmapCanvas.id);
 	this.heat.gradient({
-		0.1: 'brown',
     	0.4: 'red',
         0.6: 'yellow',
         0.7: 'lime',
         0.8: 'cyan',
         1.0: 'blue'});
-	this.addStep = 5;
+	this.addStep = 10;
 	this.maxHeat = 0;
 };
